@@ -1,5 +1,6 @@
 /* import userEvent from "@testing-library/user-event"; */
 import React from "react";
+/* import { msg } from '.../App'; */
 
 class SignIn extends React.Component {
     constructor(props) {
@@ -31,6 +32,11 @@ class SignIn extends React.Component {
                     this.props.loadUser(user);
                     this.props.onRouteChange("home");
                 }
+            })
+            .catch(err => {
+                this.setState({ errorMessage: "Login failed!" });
+                console.log(err);
+                console.log("No connection to server.");
             })
     }
 

@@ -2,6 +2,7 @@ import React, { Component } from 'react';
 import './App.css';
 import Navigation from "./components/Navigation/Navigation";
 import FaceRecognition from "./components/FaceRecognition/FaceRecognition";
+import Errors from "./components/Errors/Errors";
 import Logo from "./components/Logo/Logo";
 import ImageLinkForm from "./components/ImageLinkForm/ImageLinkForm";
 import SignIn from "./components/SignIn/SignIn";
@@ -29,6 +30,8 @@ const initialState = {
   box: {},
   route: "signin",
   isSignedIn: false,
+  isThereError: false,
+  errorMessage: "",
   user: {
     id: "",
     name: "",
@@ -37,6 +40,15 @@ const initialState = {
     joined: ""
   }
 }
+
+let isThereFace = null;
+/* let errorMessageDisplay = ""; */
+
+/* window.onerror = function errorHandler(err, url, line) {
+  console.log("Here are the errors" + err + url + line)
+
+  return false;
+} */
 
 class App extends Component {
   constructor() {
@@ -56,6 +68,7 @@ class App extends Component {
     })
   }
 
+
   calculateFaceLocation = (data) => {
     /* let clarifaiFaces = [];
     for (let i = 0; i < data.outputs.length; i++) {
@@ -63,13 +76,11 @@ class App extends Component {
     }
     console.log("faces", clarifaiFaces); */
 
-
     const clarifaiFace = (data.outputs[0].data.regions[0].region_info.bounding_box);
+    isThereFace = clarifaiFace;
     const image = document.getElementById("inputimage");
     const width = Number(image.width);
     const height = Number(image.height);
-    /* console.log(width, height);
-    console.log(clarifaiFace); */
 
     return {
       leftCol: clarifaiFace.left_col * width,
@@ -88,6 +99,7 @@ class App extends Component {
   }
 
   onButtonSubmit = () => {
+    this.setState({ isThereError: false });
     this.setState({ imgUrl: this.state.input });
     fetch("https://guarded-scrubland-64554.herokuapp.com/imageurl", {
       method: "post",
@@ -98,28 +110,42 @@ class App extends Component {
     })
       .then(response => response.json())
       .then(response => {
-        if (response) {
-          fetch("https://guarded-scrubland-64554.herokuapp.com/image", {
-            method: "put",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              id: this.state.user.id
-            })
-          })
-            .then(response => response.json())
-            .then(count => {
-              this.setState(Object.assign(this.state.user, { entries: count }))
-            })
-            .catch(console.log)
-        }
         this.displayFaceBox(this.calculateFaceLocation(response));
+        //Finns ansikte isThereFace !== null
+        if (isThereFace !== null) {
+          if (response) {
+            fetch("https://guarded-scrubland-64554.herokuapp.com/image", {
+              method: "put",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                id: this.state.user.id
+              })
+            })
+              .then(response => response.json())
+              .then(count => {
+                this.setState(Object.assign(this.state.user, { entries: count }))
+              })
+              .catch(err => {
+                console.log(err);
+                /* errorMessageDisplay = err;
+                this.setState({ errorMessage: err }); */
+                this.setState({ isThereError: true });
+              })
+          }
+        }
+        isThereFace = null;
+        /* this.setState({ errorMessage: "" }); */
       })
       .catch(err => {
         console.log(err);
+        this.setState({ errorMessage: "Unfortunately, that link didn't seem to work. Please try again!" });
+        console.log(this.state.errorMessage);
+        this.setState({ isThereError: true });
       })
   }
 
   onRouteChange = (route) => {
+    this.setState({ isThereError: false });
     if (route === "signout") {
       this.setState(initialState)
     } else if (route === "home") {
@@ -128,8 +154,9 @@ class App extends Component {
     this.setState({ route: route });
   }
 
+
   render() {
-    const { isSignedIn, imgUrl, box, route } = this.state;
+    const { isSignedIn, imgUrl, box, route, isThereError, errorMessage } = this.state;
     return (
       <div className="App">
         <Particles className="particles"
@@ -150,6 +177,11 @@ class App extends Component {
               ? <Register loadUser={this.loadUser} onRouteChange={this.onRouteChange} />
               : <SignIn loadUser={this.loadUser} onRouteChange={this.onRouteChange} />
           )
+        }
+        {/* Working on displaying error messages for each problem. Ex. "Wrong cridentials", "Couldn't read picture" etc. */}
+        { isThereError === true
+          ? <Errors isThereError={isThereError} errorMessage={errorMessage} />
+          : <> </>
         }
       </div>
     );
